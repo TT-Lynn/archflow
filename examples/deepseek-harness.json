@@ -1,0 +1,695 @@
+{
+ "title": "DeepSeek Harness：按模块拆开，Agent 到底怎么跑",
+ "eyebrow": "ARCHFLOW 示例 · DEEPSEEK HARNESS · 8bd0733",
+ "lang": "zh-CN",
+ "legend": [
+  "call",
+  "fact",
+  "proj",
+  "dep"
+ ],
+ "sources": [
+  "deepseek-ai/deepseek-harness@8bd073392eef6f54e921a093b95076248eb08cbb（2026-11-03）",
+  "docs/architecture.md：Every part of the product is a plugin…；Model-visible means logged…；Fork, resume, transcripts… derive from these durable settlements"
+ ],
+ "layout": {
+  "rows": [
+   {
+    "h": 0.56,
+    "modules": [
+     {
+      "id": "cordis",
+      "label": "Cordis 骨架 · 所有插件的底座",
+      "style": "outer",
+      "nodes": [
+       {
+        "id": "assemble",
+        "label": "装配",
+        "sub": "配置合成插件树"
+       },
+       {
+        "id": "deps",
+        "label": "依赖",
+        "sub": "谁提供能力由配置定"
+       },
+       {
+        "id": "exit",
+        "label": "退出",
+        "sub": "先停驱动，再放资源"
+       }
+      ],
+      "nodeH": 64
+     }
+    ]
+   },
+   {
+    "h": 1.08,
+    "modules": [
+     {
+      "id": "drv",
+      "label": "驱动核心",
+      "span": 0.9,
+      "dir": "col",
+      "nodes": [
+       {
+        "id": "registry",
+        "label": "公共接口",
+        "sub": "插件只认这一层"
+       },
+       {
+        "id": "loop",
+        "label": "默认驱动",
+        "sub": "推着 Agent 一步步干活"
+       }
+      ],
+      "gap": 8
+     },
+     {
+      "id": "tools",
+      "label": "工具系统 · Function Call 落地",
+      "span": 2.1,
+      "nodes": [
+       {
+        "id": "tdef",
+        "label": "定义层",
+        "sub": "有哪些 · 谁能看见"
+       },
+       {
+        "id": "tcall",
+        "label": "调用层",
+        "sub": "怎么交给模型"
+       },
+       {
+        "id": "texec",
+        "label": "执行层",
+        "sub": "审批 · 安全检查"
+       }
+      ]
+     },
+     {
+      "id": "llm",
+      "label": "模型",
+      "span": 0.7,
+      "nodes": [
+       {
+        "id": "adapter",
+        "label": "模型适配器",
+        "sub": "可以热替换"
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "h": 0.68,
+    "modules": [
+     {
+      "id": "session",
+      "label": "Session",
+      "nodes": [
+       {
+        "id": "log",
+        "label": "只追加、不改写的一本账",
+        "sub": "所有事实都记在这里",
+        "w": 1.2
+       },
+       {
+        "spacer": true,
+        "w": 1
+       }
+      ],
+      "nodeH": 72
+     }
+    ]
+   },
+   {
+    "h": 0.76,
+    "modules": [
+     {
+      "id": "hist",
+      "label": "历史与存储",
+      "nodes": [
+       {
+        "id": "pick",
+        "label": "挑选",
+        "sub": "模型该看什么"
+       },
+       {
+        "id": "history",
+        "label": "模型历史",
+        "sub": "每一步现生成"
+       },
+       {
+        "id": "views",
+        "label": "业务视图",
+        "sub": "各模块自己的"
+       },
+       {
+        "id": "write",
+        "label": "写文件",
+        "sub": "按会话排队"
+       },
+       {
+        "id": "flush",
+        "label": "刷盘",
+        "sub": "成功才算存住"
+       }
+      ]
+     }
+    ]
+   }
+  ],
+  "gapY": 20
+ },
+ "edges": [
+  {
+   "id": "e_llm",
+   "from": "loop",
+   "to": "adapter",
+   "type": "call",
+   "label": "调用模型",
+   "dir": "h",
+   "bend": -150
+  },
+  {
+   "id": "e_tool",
+   "from": "loop",
+   "to": "tdef",
+   "type": "call",
+   "label": "执行工具"
+  },
+  {
+   "id": "e_t1",
+   "from": "tdef",
+   "to": "tcall",
+   "type": "call"
+  },
+  {
+   "id": "e_t2",
+   "from": "tcall",
+   "to": "texec",
+   "type": "call"
+  },
+  {
+   "id": "e_res",
+   "from": "texec",
+   "to": "log",
+   "type": "fact",
+   "label": "工具结果"
+  },
+  {
+   "id": "e_msg",
+   "from": "loop",
+   "to": "log",
+   "type": "fact",
+   "label": "模型回复"
+  },
+  {
+   "id": "e_pick",
+   "from": "log",
+   "to": "pick",
+   "type": "proj"
+  },
+  {
+   "id": "e_hist",
+   "from": "pick",
+   "to": "history",
+   "type": "proj"
+  },
+  {
+   "id": "e_back",
+   "from": "history",
+   "to": "loop",
+   "type": "proj",
+   "dir": "v"
+  },
+  {
+   "id": "e_views",
+   "from": "log",
+   "to": "views",
+   "type": "proj",
+   "label": "投影"
+  },
+  {
+   "id": "e_write",
+   "from": "log",
+   "to": "write",
+   "type": "fact"
+  },
+  {
+   "id": "e_flush",
+   "from": "write",
+   "to": "flush",
+   "type": "fact"
+  },
+  {
+   "id": "e_dep",
+   "from": "deps",
+   "to": "loop",
+   "type": "dep",
+   "dir": "v"
+  }
+ ],
+ "insets": [
+  {
+   "id": "locks",
+   "type": "steps",
+   "place": "bottom",
+   "title": "一次请求，过两道锁",
+   "steps": [
+    "领取输入",
+    {
+     "label": "锁① 模型 + 工具快照",
+     "lock": true
+    },
+    "组装提示词",
+    {
+     "label": "锁② 绑定适配器",
+     "lock": true
+    },
+    "记进 Session",
+    "发出"
+   ],
+   "lines": [
+    {
+     "text": "为什么锁：准备请求是异步的，中途工具可能卸掉、适配器可能热替换",
+     "color": "amber"
+    },
+    {
+     "text": "好处：重试不会把用户的话再吃一遍；代价：插件在请求阶段能改的变少",
+     "color": "ink2"
+    }
+   ]
+  },
+  {
+   "id": "race",
+   "type": "race",
+   "place": "center",
+   "title": "一批工具调用：一起跑，按模型的顺序进历史",
+   "tasks": [
+    {
+     "label": "#1 可并发",
+     "len": 0.62
+    },
+    {
+     "label": "#2 可并发",
+     "len": 0.17
+    },
+    {
+     "label": "#3 可并发",
+     "len": 0.26
+    },
+    {
+     "label": "#4 独占",
+     "len": 0.2,
+     "exclusive": true
+    }
+   ],
+   "footer": "前面一个慢，后面跑完的也得等：换来稳定的顺序，代价是队头等待"
+  },
+  {
+   "id": "memory",
+   "type": "text",
+   "place": "center",
+   "title": "那记忆呢？",
+   "lines": [
+    {
+     "text": "这版源码里没有单独的长期记忆模块",
+     "color": "amber"
+    },
+    {
+     "text": "能做的是 resume 和 fork：重新打开存下的会话，或者分叉出一个新会话",
+     "color": "blue"
+    },
+    {
+     "text": "跨对话记忆要自己写插件；召回的内容要喂给模型，也得先记进 Session",
+     "color": "mint"
+    }
+   ]
+  },
+  {
+   "id": "deplife",
+   "type": "steps",
+   "place": "bottom",
+   "title": "依赖走了跟着下线，回来了自动装回",
+   "steps": [
+    "工具服务下线",
+    "驱动自动卸载",
+    "工具服务回来",
+    "驱动自动装回",
+    {
+     "label": "例外：出错不自愈",
+     "lock": true
+    }
+   ],
+   "lines": [
+    {
+     "text": "组件自己出错进了失败状态，依赖回来也不会自己好，得手动恢复",
+     "color": "amber"
+    },
+    {
+     "text": "契约定得松，复杂度会摊给每个实现方；插件化买到的是可维护性",
+     "color": "ink2"
+    }
+   ]
+  },
+  {
+   "id": "owner",
+   "type": "table",
+   "place": "full",
+   "title": "出了 bad case，先查这段状态归谁管",
+   "columns": [
+    "模块",
+    "它管的状态",
+    "最常见的坑"
+   ],
+   "widths": [
+    0.9,
+    1.5,
+    1.6
+   ],
+   "rows": [
+    [
+     "骨架",
+     "服务绑定 · 依赖",
+     "调度不等于外部事务"
+    ],
+    [
+     "驱动",
+     "活跃的 Agent · 每一步的推进",
+     "插件只碰公共接口"
+    ],
+    [
+     "待处理输入",
+     "下一轮、下一步的输入队列",
+     "已经领取的输入改不了"
+    ],
+    [
+     "工具层",
+     "定义 · 准入",
+     "注册了不等于模型看得见"
+    ],
+    [
+     "Session",
+     "已经提交的事实",
+     "原始日志不等于给模型的历史"
+    ],
+    [
+     "存储层",
+     "写入队列 · 刷盘",
+     "写进内存不等于已经落盘"
+    ]
+   ]
+  }
+ ],
+ "scenes": [
+  {
+   "key": "全景",
+   "title": "DeepSeek Harness：[五个模块]",
+   "draw": true,
+   "caption": "骨架装配一切；驱动调模型和工具；**所有事实只记进 Session 这一本账**"
+  },
+  {
+   "key": "驱动",
+   "title": "谁去调模型：[驱动核心]和两道锁",
+   "show": [
+    "drv",
+    "llm"
+   ],
+   "lit": [
+    "loop"
+   ],
+   "inset": "locks",
+   "flow": [
+    {
+     "edge": "e_llm",
+     "label": "请求"
+    }
+   ],
+   "caption": "驱动发请求前先锁住**模型 + 工具快照**和适配器，重试不会重复消费输入"
+  },
+  {
+   "key": "工具系统",
+   "title": "Function Call 落地：[工具系统三层]",
+   "show": [
+    "drv",
+    "tools",
+    "session"
+   ],
+   "zoom": [
+    "drv",
+    "tools",
+    "session"
+   ],
+   "trace": "tool",
+   "caption": "定义、调用、执行三层由同一处负责：**声明的工具 = 实际执行的工具**"
+  },
+  {
+   "key": "并发",
+   "title": "一起跑，但[按模型的顺序]进历史",
+   "show": [
+    "tools"
+   ],
+   "lit": [
+    "texec"
+   ],
+   "inset": "race",
+   "caption": "可并发的一起跑，独占的单独跑；结果**按模型发起顺序**进历史"
+  },
+  {
+   "key": "Session",
+   "title": "所有事实，只记[一本账]",
+   "show": [
+    "session",
+    "drv",
+    "tools"
+   ],
+   "lit": [
+    "log"
+   ],
+   "flow": [
+    {
+     "edge": "e_msg",
+     "label": "模型回复"
+    },
+    {
+     "edge": "e_res",
+     "label": "工具结果"
+    }
+   ],
+   "notes": [
+    {
+     "at": "log",
+     "pos": "right",
+     "text": "硬规矩：模型能看到的东西，\n必须先记进这本账",
+     "color": "amber",
+     "size": 21
+    }
+   ],
+   "caption": "模型回复和工具结果都写进只追加的账本；**模型能看到的必须先入账**"
+  },
+  {
+   "key": "历史与存储",
+   "title": "上下文怎么维护：[一本账，两条路]",
+   "show": [
+    "session",
+    "hist",
+    "drv"
+   ],
+   "lit": [
+    "hist"
+   ],
+   "flow": [
+    {
+     "edge": "e_pick",
+     "label": "该看的部分"
+    },
+    {
+     "edge": "e_hist"
+    },
+    {
+     "edge": "e_back",
+     "label": "下一步的历史"
+    },
+    {
+     "edge": "e_views"
+    },
+    {
+     "edge": "e_write",
+     "label": "会话事件"
+    },
+    {
+     "edge": "e_flush"
+    }
+   ],
+   "states": [
+    {
+     "node": "flush",
+     "state": "off",
+     "at": 600,
+     "until": 1800
+    },
+    {
+     "node": "flush",
+     "state": "flash",
+     "at": 1800,
+     "until": 2600
+    }
+   ],
+   "caption": "同一本账两条路：投影成给模型的历史，排队写盘；**刷盘成功才算存住**"
+  },
+  {
+   "key": "Cordis",
+   "title": "插件从哪接：[Cordis 骨架]",
+   "show": [
+    "cordis",
+    "drv",
+    "tools"
+   ],
+   "lit": [
+    "deps"
+   ],
+   "inset": "deplife",
+   "edges": [
+    "e_dep"
+   ],
+   "flow": [
+    {
+     "edge": "e_dep",
+     "label": "六种能力",
+     "count": 1
+    }
+   ],
+   "states": [
+    {
+     "node": "tdef",
+     "state": "off",
+     "at": 600,
+     "until": 2600
+    },
+    {
+     "node": "loop",
+     "state": "off",
+     "at": 1300,
+     "until": 3300
+    },
+    {
+     "node": "loop",
+     "state": "flash",
+     "at": 3300,
+     "until": 4000
+    },
+    {
+     "node": "loop",
+     "state": "failed",
+     "at": 5200
+    }
+   ],
+   "caption": "依赖下线 → 驱动自动卸载，回来自动装回；**组件自己出错不会自愈**"
+  },
+  {
+   "key": "记忆",
+   "title": "边界：这版[没有]长期记忆模块",
+   "inset": "memory",
+   "caption": "resume / fork 靠重放 Session；跨对话记忆要自己写插件，且召回内容也得先入账"
+  },
+  {
+   "key": "状态归属",
+   "title": "出了 bad case：[先查归谁管]",
+   "inset": "owner",
+   "caption": "出问题先按状态归属定位模块，再看这个模块最常见的坑"
+  },
+  {
+   "key": "走一圈",
+   "title": "连起来：一次运转[走一圈]",
+   "edges": "all",
+   "trace": "turn",
+   "caption": "驱动不直接读上一步的内存：**每一步的历史都从账本现投影出来**"
+  }
+ ],
+ "autoplay": 9000,
+ "flows": [
+  {
+   "id": "tool",
+   "title": "工具调用",
+   "steps": [
+    {
+     "edge": "e_tool",
+     "name": "发起调用",
+     "label": "调用"
+    },
+    {
+     "edge": "e_t1"
+    },
+    {
+     "edge": "e_t2",
+     "name": "审批执行"
+    },
+    {
+     "edge": "e_res",
+     "name": "结果入账",
+     "label": "工具结果"
+    }
+   ]
+  },
+  {
+   "id": "turn",
+   "title": "一次运转",
+   "steps": [
+    {
+     "edge": "e_llm",
+     "name": "请求模型",
+     "label": "请求",
+     "dur": 1300
+    },
+    {
+     "edge": "e_llm",
+     "name": "拿到回复",
+     "label": "回复",
+     "rev": true,
+     "dur": 1300
+    },
+    {
+     "edge": "e_msg",
+     "name": "回复入账",
+     "label": "模型回复"
+    },
+    {
+     "edge": "e_tool",
+     "name": "执行工具",
+     "label": "工具调用",
+     "jump": true
+    },
+    {
+     "edge": "e_t1",
+     "dur": 500
+    },
+    {
+     "edge": "e_t2",
+     "dur": 500
+    },
+    {
+     "edge": "e_res",
+     "name": "结果入账",
+     "label": "工具结果"
+    },
+    {
+     "edge": "e_pick",
+     "name": "挑选历史",
+     "label": "挑选"
+    },
+    {
+     "edge": "e_hist",
+     "dur": 500
+    },
+    {
+     "edge": "e_back",
+     "name": "喂回驱动",
+     "label": "历史",
+     "dur": 1400
+    }
+   ]
+  }
+ ],
+ "overviewCaption": "实线 = 调用 / 写入事实，点线 = 投影读取，虚线 = 依赖"
+}

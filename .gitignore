@@ -1,0 +1,6 @@
+*-shots/
+examples/*.html
+examples/*.png
+examples/*.outline.md
+.DS_Store
+node_modules/
